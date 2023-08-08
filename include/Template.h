@@ -3,277 +3,151 @@
 
 #include "Arduino.h"
 
-#define MAX_GPIO_PIN 50 // Number of supported GPIO
-
-
-#ifndef MAX_RELAY_NUM
-#define MAX_RELAY_NUM 4
-#endif
-
-#ifndef MAX_PWM_NUM
-#define MAX_PWM_NUM 4
-#endif
-
-#ifndef USE_DIMMING
-#undef MAX_PWM_NUM
-#define MAX_PWM_NUM 0
-#endif
-
-extern uint8_t LED_PIN;
-extern uint8_t RFRECV_PIN;
-extern uint8_t RELAY_PIN[MAX_RELAY_NUM];
-extern uint8_t BOTTON_PIN[MAX_RELAY_NUM + MAX_PWM_NUM];
-extern uint8_t RELAY_LED_PIN[MAX_RELAY_NUM + MAX_PWM_NUM];
-
-#ifdef USE_DIMMING
-extern uint8_t PWM_BRIGHTNESS_PIN[MAX_PWM_NUM];
-extern uint8_t PWM_TEMPERATURE_PIN[MAX_PWM_NUM];
-extern bool PWM_INVERT;
-extern uint8_t ROT_PIN[2];
-#endif
+#define MAX_GPIO_PIN 17  // Number of supported GPIO
+#define MIN_FLASH_PINS 4 // Number of flash chip pins unusable for configuration (GPIO6, 7, 8 and 11)
 
 typedef struct MYTMPLT
 {
-    char name[26];
-    uint8_t io[MAX_GPIO_PIN];
+    char name[16];
+    uint8_t io[MAX_GPIO_PIN - MIN_FLASH_PINS];
 } mytmplt;
+
+enum UserSelectablePins
+{
+    GPIO_NONE, // Not used
+    GPIO_REL1, // Relays
+    GPIO_REL2,
+    GPIO_REL3,
+    GPIO_REL4,
+    GPIO_KEY1, // Button usually connected to GPIO0
+    GPIO_KEY2,
+    GPIO_KEY3,
+    GPIO_KEY4,
+    GPIO_LED_POWER,     // Power Led (1 = On, 0 = Off)
+    GPIO_LED_POWER_INV, // Power Led (0 = On, 1 = Off)
+    GPIO_LED1,          // Leds
+    GPIO_LED2,
+    GPIO_LED3,
+    GPIO_LED4,
+    GPIO_RFRECV, // RF receiver
+
+
+    GPIO_MAX  // 占位
+};
 
 enum SupportedModules
 {
-#ifdef ESP8266
     SONOFF_BASIC,
     CH1,
     CH2,
     CH3,
     iciness_CH3,
-    Yeelight,
-    WEILE,
-#ifdef USE_CAIJI
-    ji_CH4,
-    ji_CH8,
-#endif
-    Kong,
-#else
-    PMW4,
-    CH2_PWM,
-    CH1_PWM1,
-    Yeelight,
-#ifdef USE_SHUJI
-    Shuji_CH6_PWM6,
-    Shuji_CH12,
-    Shuji_CH5,
-    Shuji_CH6,
-    Shuji_CH6_PWM3,
-    Shuji_PWM6,
-#endif
-#endif
+
 
     MAXMODULE // 占位
 };
 
-// TLV 结构 1：LED  2：RELAY  3：BUTTON  4：RELAY LED  5：433  6：PWM1  7：PWM2  8：ROT  99：结束  IO>50 为反
 const mytmplt Modules[MAXMODULE] PROGMEM = {
-#ifdef ESP8266
     {
-        "Sonoff Basic", // Sonoff Basic (ESP8266)
-        2, 1, 12,       // RELAY IO
-        3, 1, 0,        // BUTTON IO
-
-        99 // END
+        "Sonoff Basic",     // Sonoff Basic (ESP8266)
+        GPIO_KEY1,          // GPIO00 Button
+        GPIO_NONE,          // GPIO01
+        GPIO_NONE,          // GPIO02
+        GPIO_NONE,          // GPIO03
+        GPIO_NONE,          // GPIO04
+        0,                  // GPIO05
+                            // GPIO06 (SD_CLK   Flash)
+                            // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                            // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+        0,                  // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+        0,                  // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                            // GPIO11 (SD_CMD   Flash)
+        GPIO_REL1,          // GPIO12 Red Led and Relay (0 = Off, 1 = On)
+        GPIO_LED_POWER_INV, // GPIO13 Green Led (0 = On, 1 = Off) - Link and Power status
+        GPIO_NONE,          // GPIO14
+        0,                  // GPIO15
+        0                   // GPIO16
     },
     {
-        "1路开关",     // 1 Channel (ESP8285)
-        1, 1, 16 + 50, // LED IO
-        2, 1, 14,      // RELAY IO
-        3, 1, 4,       // BUTTON IO
-        4, 1, 0,       // RELAY LED IO
-        5, 1, 13,      // 433 IO
-
-        99 // END
+        "1 Channel",       // 3 Channel (ESP8285)
+        GPIO_LED1,         // GPIO00
+        GPIO_NONE,         // GPIO01
+        GPIO_NONE,         // GPIO02
+        GPIO_NONE,         // GPIO03
+        GPIO_KEY1,         // GPIO04
+        GPIO_NONE,         // GPIO05
+                           // GPIO06 (SD_CLK   Flash)
+                           // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                           // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+        GPIO_NONE,         // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+        GPIO_NONE,         // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                           // GPIO11 (SD_CMD   Flash)
+        GPIO_NONE,         // GPIO12
+        GPIO_RFRECV,       // GPIO13
+        GPIO_REL1,         // GPIO14
+        GPIO_NONE,         // GPIO15
+        GPIO_LED_POWER_INV // GPIO16 Led (1 = On, 0 = Off) - Link and Power status
     },
     {
-        "2路开关",     // 2 Channel (ESP8285)
-        1, 1, 16 + 50, // LED IO
-        2, 2, 14, 12,  // RELAY IO
-        3, 2, 4, 9,    // BUTTON IO
-        4, 2, 0, 2,    // RELAY LED IO
-        5, 1, 13,      // 433 IO
-
-        99 // END
+        "2 Channel",       // 3 Channel (ESP8285)
+        GPIO_LED1,         // GPIO00
+        GPIO_NONE,         // GPIO01
+        GPIO_LED2,         // GPIO02
+        GPIO_NONE,         // GPIO03
+        GPIO_KEY1,         // GPIO04
+        GPIO_NONE,         // GPIO05
+                           // GPIO06 (SD_CLK   Flash)
+                           // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                           // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+        GPIO_KEY2,         // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+        GPIO_NONE,         // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                           // GPIO11 (SD_CMD   Flash)
+        GPIO_REL2,         // GPIO12
+        GPIO_RFRECV,       // GPIO13
+        GPIO_REL1,         // GPIO14
+        GPIO_NONE,         // GPIO15
+        GPIO_LED_POWER_INV // GPIO16 Led (1 = On, 0 = Off) - Link and Power status
     },
     {
-        "3路开关",       // 3 Channel (ESP8285)
-        1, 1, 16 + 50,   // LED IO
-        2, 3, 14, 12, 5, // RELAY IO
-        3, 3, 4, 9, 10,  // BUTTON IO
-        4, 3, 0, 2, 15,  // RELAY LED IO
-        5, 1, 13,        // 433 IO
-
-        99 // END
+        "3 Channel",       // 3 Channel (ESP8285)
+        GPIO_LED1,         // GPIO00
+        GPIO_NONE,         // GPIO01
+        GPIO_LED2,         // GPIO02
+        GPIO_NONE,         // GPIO03
+        GPIO_KEY1,         // GPIO04
+        GPIO_REL3,         // GPIO05
+                           // GPIO06 (SD_CLK   Flash)
+                           // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                           // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+        GPIO_KEY2,         // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+        GPIO_KEY3,         // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                           // GPIO11 (SD_CMD   Flash)
+        GPIO_REL2,         // GPIO12
+        GPIO_RFRECV,       // GPIO13
+        GPIO_REL1,         // GPIO14
+        GPIO_LED3,         // GPIO15
+        GPIO_LED_POWER_INV // GPIO16 Led (1 = On, 0 = Off) - Link and Power status
     },
     {
-        "iciness CH3",    // 3 Channel (ESP8285)
-        2, 3, 14, 15, 12, // RELAY IO
-        3, 3, 9, 10, 2,   // BUTTON IO
-        4, 3, 4, 5, 16,   // RELAY LED IO
-
-        99 // END
+        "iciness CH3", // 3 Channel (ESP8285)
+        GPIO_NONE,     // GPIO00
+        GPIO_NONE,     // GPIO01
+        GPIO_KEY3,     // GPIO02
+        GPIO_NONE,     // GPIO03
+        GPIO_LED1,     // GPIO04
+        GPIO_LED2,     // GPIO05
+                       // GPIO06 (SD_CLK   Flash)
+                       // GPIO07 (SD_DATA0 Flash QIO/DIO/DOUT)
+                       // GPIO08 (SD_DATA1 Flash QIO/DIO/DOUT)
+        GPIO_KEY1,     // GPIO09 (SD_DATA2 Flash QIO or ESP8285)
+        GPIO_KEY2,     // GPIO10 (SD_DATA3 Flash QIO or ESP8285)
+                       // GPIO11 (SD_CMD   Flash)
+        GPIO_REL3,     // GPIO12
+        GPIO_NONE,     // GPIO13
+        GPIO_REL1,     // GPIO14
+        GPIO_REL2,     // GPIO15
+        GPIO_LED3      // GPIO16 Led (1 = On, 0 = Off) - Link and Power status
     },
-    {
-        "Yeelight",    // 3 Channel (ESP32)
-        1, 1, 16 + 50, // LED IO
-        3, 1, 4,       // BUTTON IO
-        5, 1, 13,      // 433 IO
-
-        6, 1, 5,  // PWM1 IO
-        7, 1, 12, // PWM2 IO
-
-        99 // END
-    },
-    {
-        "威乐回水器",  // 2 Channel (ESP8285)
-        1, 1, 16 + 50, // LED IO
-        2, 2, 14, 12,  // RELAY IO
-        5, 1, 13,      // 433 IO
-
-        99 // END
-    },
-#ifdef USE_CAIJI
-    {
-        "菜鸡 CH4",  // 4 Channel (ESP8285)
-        1, 1, 16 + 50,   // LED IO
-        2, 4, 14, 12, 5, 15, // RELAY IO
-        3, 4, 4, 9, 10, 2,  // BUTTON IO
-        5, 1, 13,        // 433 IO
-
-        99 // END
-    },
-    {
-        "菜鸡 统一供电",  // 8 Channel (ESP8285)
-        2, 8, 3, 5, 4, 0, 13, 12, 14, 16, // RELAY IO
-
-        99 // END
-    },
-#endif
-    {
-        "孔总",  // 3 Channel (ESP8285)
-        1, 1, 13 + 50,   // LED IO
-        2, 3, 12, 5, 4, // RELAY IO
-        3, 3, 0, 9, 10,  // BUTTON IO
-
-        99 // END
-    },
-#else
-    {
-        "4路调光",            // 4 PWM
-        1, 1, 2,              // LED IO
-        3, 4, 36, 39, 34, 35, // BUTTON IO
-        4, 4, 32, 33, 25, 26, // RELAY LED IO
-
-        6, 4, 22 + 50, 21 + 50, 19 + 50, 18 + 50, // PWM1 IO
-
-        99 // END
-    },
-    {
-        "2路双色",            // 1 Channel & 2 PWM
-        1, 1, 2 + 50,         // LED IO
-        3, 4, 36, 39, 34, 35, // BUTTON IO
-        4, 4, 32, 33, 25, 26, // RELAY LED IO
-        5, 1, 4,              // 433 IO
-
-        6, 2, 22 + 50, 19 + 50, // PWM1 IO
-        7, 2, 21 + 50, 18 + 50, // PWM2 IO
-
-        99 // END
-    },
-    {
-        "主灯&筒灯",  // 1 Channel & 2 PWM
-        1, 1, 2 + 50, // LED IO
-        2, 1, 23,     // RELAY IO
-        3, 2, 36, 39, // BUTTON IO
-        4, 2, 32, 33, // RELAY LED IO
-        5, 1, 4,      // 433 IO
-
-        6, 1, 22 + 50, // PWM1 IO
-        7, 1, 21 + 50, // PWM2 IO
-
-        99 // END
-    },
-    {
-        "Yeelight",   // 1 Channel & 2 PWM
-        1, 1, 2 + 50, // LED IO
-        3, 1, 36,     // BUTTON IO
-        4, 1, 32,     // RELAY LED IO
-        5, 1, 4,      // 433 IO
-
-        6, 1, 22, // PWM1 IO
-        7, 1, 21, // PWM2 IO
-
-        99 // END
-    },
-#ifdef USE_SHUJI
-    {
-        "书记6路调光",                                              // 6 Channel
-        1, 1, 2 + 50,                                              // LED IO
-        2, 6, 12, 12, 12, 12, 12, 12,                              // RELAY IO
-        3, 12, 36, 39, 34, 35, 32, 33, 25, 26, 27, 14, 15, 0,      // BUTTON IO
-        4, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,     // RELAY LED IO
-        6, 6, 23 + 50, 22 + 50, 21 + 50, 19 + 50, 18 + 50, 5 + 50, // PWM1 IO
-
-        99 // END
-    },
-    {
-        "书记12路开关",                                             // 12 Channel
-        1, 1, 2 + 50,                                              // LED IO
-        2, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,     // RELAY IO
-        3, 12, 36, 39, 34, 35, 32, 33, 25, 26, 27, 14, 15, 0,      // BUTTON IO
-        4, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,     // RELAY LED IO
-
-        99 // END
-    },
-    {
-        "1开关&4路调光",            // 4 PWM
-        1, 1, 2,              // LED IO
-        2, 1, 23,     // RELAY IO
-        3, 5, 12, 36, 39, 34, 35, // BUTTON IO
-        4, 5, 12, 32, 33, 25, 26, // RELAY LED IO
-
-        6, 4, 22 + 50, 21 + 50, 19 + 50, 18 + 50, // PWM1 IO
-
-        99 // END
-    },
-    {
-        "书记6路开关",                                             // 6 Channel
-        1, 1, 2 + 50,                                              // LED IO
-        2, 6, 12, 12, 12, 12, 12, 12,     // RELAY IO
-        3, 6, 36, 39, 34, 35, 32, 33,      // BUTTON IO
-        4, 6, 25, 26, 27, 14, 4, 5,     // RELAY LED IO
-
-        99 // END
-    },
-    {
-        "书记3路双色",                                              // 6 Channel
-        1, 1, 2 + 50,                                              // LED IO
-        2, 6, 12, 12, 12, 12, 12, 12,                              // RELAY IO
-        3, 12, 36, 39, 34, 35, 32, 33, 25, 26, 27, 14, 15, 0,      // BUTTON IO
-        4, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,     // RELAY LED IO
-        6, 3, 23 + 50, 21 + 50, 18 + 50, // PWM1 IO
-        7, 3, 22 + 50, 19 + 50, 5 + 50, // PWM2 IO
-
-        99 // END
-    },
-    {
-        "书记6路双色",                // 6 PWM
-        1, 1, 2,                     // LED IO
-        //3, 6, 0, 1, 2, 3, 8, 9,      // BUTTON IO
-        //4, 6, 4, 5, 6, 7, 12, 13,    // RELAY LED IO
-        6, 6, 23, 21, 18, 17, 4, 33, // PWM1 IO
-        7, 6, 22, 19, 5, 16, 32, 25, // PWM2 IO
-
-        99 // END
-    },
-#endif
-#endif
 };
 
 #endif

@@ -1,4 +1,8 @@
 #include <Arduino.h>
+#include <ESP8266httpUpdate.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <ESP8266WiFi.h>
+
 #include "Framework.h"
 #include "Relay.h"
 
@@ -6,25 +10,11 @@
 #include "homekit.h"
 #endif
 
-#ifdef USE_WEILE
-#include "WeiLe.hpp"
-#endif
-#ifdef USE_ZIGBEE
-#include "ZigBee.hpp"
-#endif
-
 void setup()
 {
     Framework::one(115200);
 
     module = new Relay();
-
-#ifdef USE_WEILE
-    addModule(callModule_WeiLe);
-#endif
-#ifdef USE_ZIGBEE
-    addModule(callModule_ZigBee);
-#endif
 
     Framework::setup();
 
