@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "esp_relay",
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"functional": "cpp",
+			"cmath": "cpp",
+			"string": "cpp",
+			"*.tcc": "cpp",
+			"sstream": "cpp"
+		}
+	}
+}

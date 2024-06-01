@@ -4,6 +4,7 @@
 #ifdef USE_HOMEKIT
 #include "HomeKit.h"
 #endif
+#include <ESP8266Ping.h>
 
 #pragma region 继承
 
@@ -104,7 +105,13 @@ bool Relay::moduleLed()
     }
     return false;
 }
+IPAddress target(192, 168, 1, 12);
+const int maxAttempts = 10;
 
+
+int failedAttempts = 0;
+int successfulAttempts = 0;
+bool relaySwitched = true; // 添加一个标志以跟踪是否已经切换了继电器
 void Relay::loop()
 {
     for (size_t ch = 0; ch < channels; ch++)
@@ -131,6 +138,9 @@ void Relay::loop()
             reportPower();
         }
     }
+
+    
+
 }
 
 void Relay::perSecondDo()
@@ -220,14 +230,15 @@ void Relay::mqttDiscovery(bool isEnable)
             cmndTopic[strlen(cmndTopic) - 1] = ch + 49;           // 48 + 1 + ch
             powerStatTopic[strlen(powerStatTopic) - 1] = ch + 49; // 48 + 1 + ch
             sprintf(message, PSTR("{\"name\":\"%s_%d\","
+                                  "\"value_template\":\"{{ value_json.state }}\","
+                                  "\"payload_off\":\"OFF\","
+                                  "\"payload_on\":\"ON\","
                                   "\"command_topic\":\"%s\","
                                   "\"state_topic\":\"%s\","
-                                  "\"payload_off\":\"off\","
-                                  "\"payload_on\":\"on\","
                                   "\"availability_topic\":\"%s\","
                                   "\"payload_available\":\"online\","
                                   "\"payload_not_available\":\"offline\","
-                                  "\"unique_id\":\"%s_%d\","
+                                  "\"unique_id\":\"esp_relay_%s_%d\","
                                   "\"device\":{"
                                   "\"identifiers\":\"%s\","
                                   "\"name\":\"%s\","
@@ -784,6 +795,7 @@ void Relay::switchRelay(uint8_t ch, bool isOn, bool isSave)
     }
 }
 
+
 void Relay::cheackButton(uint8_t ch)
 {
     if (GPIO_PIN[GPIO_KEY1 + ch] == 99)
@@ -854,6 +866,33 @@ void Relay::cheackButton(uint8_t ch)
         }
         switchCount[ch] = 0;
     }
+    /*
+    String c = "2";
+    ch = c.toInt() - 1;
+
+    if (Ping.ping(target)) {
+        Serial.println("Ping successful");
+        successfulAttempts++; // 增加成功尝试次数
+        failedAttempts = 0; // 重置失败尝试次数
+        if (relaySwitched) { // 如果继电器已经切换，则将其切换回来
+            switchRelay(ch, true, false);
+            relaySwitched = false; // 重置标志
+            Serial.println("relaySwitched On successful");
+        }
+    } else {
+        Serial.println("Ping failed");
+        failedAttempts++; // 增加失败尝试次数
+        successfulAttempts = 0; // 重置成功尝试次数
+        if (failedAttempts >= maxAttempts && !relaySwitched) {
+            Serial.println("Exceeded maximum failed attempts, switching relay");
+            switchRelay(ch, false, false); // 切换继电器
+            relaySwitched = true; // 设置标志以防止重复切换
+            Serial.println("relaySwitched Off successful");
+        }
+    }
+    */
+
+
 }
 
 void Relay::loadModule(uint8_t module)
@@ -890,8 +929,10 @@ void Relay::reportPower()
     }
 }
 
+
 void Relay::reportChannel(uint8_t ch)
 {
     powerStatTopic[strlen(powerStatTopic) - 1] = ch + 49; // 48 + 1 + ch
     Mqtt::publish(powerStatTopic, bitRead(lastState, ch) ? "on" : "off", globalConfig.mqtt.retain);
+
 }
