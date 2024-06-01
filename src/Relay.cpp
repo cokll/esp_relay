@@ -159,7 +159,7 @@ void Relay::loop()
     }
 
 
-
+    /*
     String c = "2";
     uint8_t ch = c.toInt() - 1;
     if(WiFi.status() == WL_CONNECTED){
@@ -183,7 +183,7 @@ void Relay::loop()
                 Serial.println("relaySwitched Off successful");
             }
         }
-    }
+    }*/
 
 
 
