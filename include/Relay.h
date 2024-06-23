@@ -34,7 +34,7 @@ private:
     // 按键
     // 等待开关再次切换的时间（以毫秒为单位）。
     // 300对我来说效果很好，几乎没有引起注意。 如果您不想使用此功能，请设置为0。
-    uint16_t specialFunctionTimeout = 300;
+    uint16_t specialFunctionTimeout = 0;
     unsigned long buttonTimingStart[MAX_RELAY_NUM + MAX_PWM_NUM];
     unsigned long buttonIntervalStart[MAX_RELAY_NUM + MAX_PWM_NUM];
     uint8_t buttonStateFlag[MAX_RELAY_NUM + MAX_PWM_NUM];

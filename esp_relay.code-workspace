@@ -11,7 +11,8 @@
 			"cmath": "cpp",
 			"string": "cpp",
 			"*.tcc": "cpp",
-			"sstream": "cpp"
+			"sstream": "cpp",
+			"random": "cpp"
 		}
 	}
 }

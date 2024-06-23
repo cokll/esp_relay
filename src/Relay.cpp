@@ -5,7 +5,105 @@
 #ifdef USE_HOMEKIT
 #include "HomeKit.h"
 #endif
-#include <ESP8266Ping.h>
+//---------------- INA226------------------
+#include <Arduino.h>
+
+#include <Wire.h>
+#include <INA226_dev.h>
+
+INA226 ina;
+void checkConfig()
+{
+  Serial.print("Mode:                  ");
+  switch (ina.getMode())
+  {
+    case INA226_MODE_POWER_DOWN:      Serial.println("Power-Down"); break;
+    case INA226_MODE_SHUNT_TRIG:      Serial.println("Shunt Voltage, Triggered"); break;
+    case INA226_MODE_BUS_TRIG:        Serial.println("Bus Voltage, Triggered"); break;
+    case INA226_MODE_SHUNT_BUS_TRIG:  Serial.println("Shunt and Bus, Triggered"); break;
+    case INA226_MODE_ADC_OFF:         Serial.println("ADC Off"); break;
+    case INA226_MODE_SHUNT_CONT:      Serial.println("Shunt Voltage, Continuous"); break;
+    case INA226_MODE_BUS_CONT:        Serial.println("Bus Voltage, Continuous"); break;
+    case INA226_MODE_SHUNT_BUS_CONT:  Serial.println("Shunt and Bus, Continuous"); break;
+    default: Serial.println("unknown");
+  }
+  
+  Serial.print("Samples average:       ");
+  switch (ina.getAverages())
+  {
+    case INA226_AVERAGES_1:           Serial.println("1 sample"); break;
+    case INA226_AVERAGES_4:           Serial.println("4 samples"); break;
+    case INA226_AVERAGES_16:          Serial.println("16 samples"); break;
+    case INA226_AVERAGES_64:          Serial.println("64 samples"); break;
+    case INA226_AVERAGES_128:         Serial.println("128 samples"); break;
+    case INA226_AVERAGES_256:         Serial.println("256 samples"); break;
+    case INA226_AVERAGES_512:         Serial.println("512 samples"); break;
+    case INA226_AVERAGES_1024:        Serial.println("1024 samples"); break;
+    default: Serial.println("unknown");
+  }
+
+  Serial.print("Bus conversion time:   ");
+  switch (ina.getBusConversionTime())
+  {
+    case INA226_BUS_CONV_TIME_140US:  Serial.println("140uS"); break;
+    case INA226_BUS_CONV_TIME_204US:  Serial.println("204uS"); break;
+    case INA226_BUS_CONV_TIME_332US:  Serial.println("332uS"); break;
+    case INA226_BUS_CONV_TIME_588US:  Serial.println("558uS"); break;
+    case INA226_BUS_CONV_TIME_1100US: Serial.println("1.100ms"); break;
+    case INA226_BUS_CONV_TIME_2116US: Serial.println("2.116ms"); break;
+    case INA226_BUS_CONV_TIME_4156US: Serial.println("4.156ms"); break;
+    case INA226_BUS_CONV_TIME_8244US: Serial.println("8.244ms"); break;
+    default: Serial.println("unknown");
+  }
+
+  Serial.print("Shunt conversion time: ");
+  switch (ina.getShuntConversionTime())
+  {
+    case INA226_SHUNT_CONV_TIME_140US:  Serial.println("140uS"); break;
+    case INA226_SHUNT_CONV_TIME_204US:  Serial.println("204uS"); break;
+    case INA226_SHUNT_CONV_TIME_332US:  Serial.println("332uS"); break;
+    case INA226_SHUNT_CONV_TIME_588US:  Serial.println("558uS"); break;
+    case INA226_SHUNT_CONV_TIME_1100US: Serial.println("1.100ms"); break;
+    case INA226_SHUNT_CONV_TIME_2116US: Serial.println("2.116ms"); break;
+    case INA226_SHUNT_CONV_TIME_4156US: Serial.println("4.156ms"); break;
+    case INA226_SHUNT_CONV_TIME_8244US: Serial.println("8.244ms"); break;
+    default: Serial.println("unknown");
+  }
+  
+  Serial.print("Max possible current:  ");
+  Serial.print(ina.getMaxPossibleCurrent());
+  Serial.println(" A");
+
+  Serial.print("Max current:           ");
+  Serial.print(ina.getMaxCurrent());
+  Serial.println(" A");
+
+  Serial.print("Max shunt voltage:     ");
+  Serial.print(ina.getMaxShuntVoltage());
+  Serial.println(" V");
+
+  Serial.print("Max power:             ");
+  Serial.print(ina.getMaxPower());
+  Serial.println(" W");
+  Log::Info(PSTR("Max possible current: %.2f A"), ina.getMaxPossibleCurrent());
+  Log::Info(PSTR("Max current: %.2f A"), ina.getMaxCurrent());
+  Log::Info(PSTR("Max shunt voltage: %.2f V"), ina.getMaxShuntVoltage());
+  Log::Info(PSTR("Max power : %.2f W"), ina.getMaxPower());
+}
+
+/**************************************************************************************************
+** Declare program Constants                                                                     **
+**************************************************************************************************/
+const uint8_t  INA_ALERT_PIN = 2;       ///< Pin-Change pin used for the INA "ALERT" functionality
+
+const uint32_t SERIAL_SPEED  = 115200;  ///< Use fast serial speed
+/**************************************************************************************************
+** Declare global variables and instantiate classes                                              **
+**************************************************************************************************/
+
+
+static long lastMillis = millis();  // Store the last time we printed something
+static long lastDelayMillis = millis();  // Store the last time we started the delay
 
 uint8_t LED_PIN = 99;
 uint8_t RFRECV_PIN = 99;
@@ -13,6 +111,7 @@ uint8_t RELAY_PIN[MAX_RELAY_NUM];
 uint8_t BOTTON_PIN[MAX_RELAY_NUM + MAX_PWM_NUM];
 uint8_t RELAY_LED_PIN[MAX_RELAY_NUM + MAX_PWM_NUM];
 uint8_t RELAY_LED_BACKLIGHT_PIN = 99;
+
 
 #ifdef USE_DIMMING
 uint8_t dimmingState[MAX_PWM_NUM]; // 0: 是否下降亮度， 1：进入调光模式  2：已经调光
@@ -22,8 +121,6 @@ uint8_t PWM_BRIGHTNESS_PIN[MAX_PWM_NUM];
 uint8_t PWM_TEMPERATURE_PIN[MAX_PWM_NUM];
 uint8_t ROT_PIN[2];
 #endif
-
-
 
 #pragma region 继承
 
@@ -36,6 +133,7 @@ String Relay::getModuleCNName()
 
 void Relay::init()
 {
+
     loadModule(config.module_type);
     if (LED_PIN != 99)
     {
@@ -108,7 +206,32 @@ void Relay::init()
     {
         pinMode(RELAY_LED_BACKLIGHT_PIN, OUTPUT); // 开关面板背光灯
     }
+    // 初始化软件串口
+    pinMode(INA_ALERT_PIN, INPUT_PULLUP);  // Declare pin with internal pull-up resistor
+    
+    Serial.println("Initialize INA226");
+    Serial.println("-----------------------------------------------");
 
+    Wire.begin();
+
+    // Default INA226 address is 0x40
+    bool success = ina.begin();
+
+    // Check if the connection was successful, stop if not
+    if(!success)
+    {
+        Serial.println("Connection error");
+        while(1);
+    }
+
+    // Configure INA226
+    ina.configure(INA226_AVERAGES_1, INA226_BUS_CONV_TIME_1100US, INA226_SHUNT_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
+
+    // Calibrate INA226. Rshunt = 0.01 ohm, Max excepted current = 4A
+    ina.calibrate(0.01, 4);
+
+    // Display configuration
+    checkConfig();
 
     checkCanLed(true);
 }
@@ -157,8 +280,61 @@ void Relay::loop()
     {
         checkButton(ch);
     }
+    uint8_t ch = 0;
+    busvoltage=ina.readBusVoltage()+0.4;
+    if (millis() - lastDelayMillis >= 3000) {  // Check if 1 second has passed
+        lastDelayMillis = millis();  // Reset delay timer
+
+        if (busvoltage<8){
+            switchRelay(ch, false, false); // 切换继电器
+            Log::Info(PSTR("电压过低: %.2f"), busvoltage);
+            
+        }
+        /*
+        Serial.print("Bus voltage:   ");
+        Serial.print(busvoltage, 5);
+        Serial.println(" V");
+        busPower=ina.readBusPower();
+        Serial.print("Bus power:     ");
+        Serial.print(busPower, 5);
+        Serial.println(" W");
+
+        shuntvoltage=ina.readShuntVoltage();
+        Serial.print("Shunt voltage: ");
+        Serial.print(shuntvoltage, 5);
+        Serial.println(" V");
+        current_mA=ina.readShuntCurrent();
+        Serial.print("Shunt current: ");
+        Serial.print(current_mA, 5);
+        Serial.println(" A");
+
+        Serial.println("");*/
+    }
 
 
+
+    if (busvoltage>15) {
+        successfulAttempts++; // 增加成功尝试次数
+        failedAttempts = 0; // 重置失败尝试次数
+        if (relaySwitched) { // 如果继电器已经切换，则将其切换回来
+            switchRelay(ch, true, false);
+            relaySwitched = false; // 重置标志
+            Serial.println("relaySwitched On successful");
+            Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
+            Log::Info(PSTR("relaySwitched On successful"));
+        }
+    } else {
+        failedAttempts++; // 增加失败尝试次数
+        successfulAttempts = 0; // 重置成功尝试次数
+        if (failedAttempts >= maxAttempts && !relaySwitched) {
+            Serial.println("Exceeded maximum failed attempts, switching relay");
+            switchRelay(ch, false, false); // 切换继电器
+            relaySwitched = true; // 设置标志以防止重复切换
+            Serial.println("relaySwitched Off successful");
+            Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
+            Log::Info(PSTR("relaySwitched Off successful"));
+        }
+    }
     /*
     String c = "2";
     uint8_t ch = c.toInt() - 1;
@@ -185,6 +361,9 @@ void Relay::loop()
         }
     }*/
 
+    // 从软串口读取数据并打印到硬件串口（控制台）
+
+    //Log::Info(PSTR("HLK-105: %s"), c);
 
 
 #ifdef USE_RCSWITCH
@@ -371,6 +550,9 @@ void Relay::mqttDiscovery(bool isEnable)
                                   "\"device\":{"
                                   "\"identifiers\":\"%s\","
                                   "\"name\":\"%s\","
+                                  "\"sw_version\":\"esp_relay-%s\","
+                                  "\"sw_version\":\"esp_relay-%s\","
+                                  "\"sw_version\":\"esp_relay-%s\","
                                   "\"sw_version\":\"esp_relay-%s\","
                                   "\"model\":\"esp_relay\","
                                   "\"manufacturer\":\"espressif\"}}"
@@ -814,8 +996,11 @@ void Relay::httpHa(WebServer *server)
                         "    payload_off: \"off\"\r\n"
                         "    availability_topic: \"%s\"\r\n"
                         "    payload_available: \"online\"\r\n"
-                        "    payload_not_available: \"offline\"\r\n"),
-                   UID, ch + 1, powerStatTopic, cmndTopic, availability.c_str());
+                        "    payload_not_available: \"offline\"\r\n"
+                        "    busvoltage: \"%.2f\"\r\n"
+                        "    current_mA: \"%.2f\"\r\n"
+                        ),
+                   UID, ch + 1, powerStatTopic, cmndTopic, availability.c_str(),busvoltage,current_mA);
         server->sendContent_P(html);
 #ifdef USE_DIMMING
         if (dimming && ch >= dimming->pwmstartch)

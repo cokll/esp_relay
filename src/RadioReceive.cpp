@@ -77,7 +77,7 @@ void RadioReceive::loop()
     }
 
     unsigned long value = mySwitch->getReceivedValue();
-    //Log::Error(PSTR("433Mhz: %d"), value);
+    Log::Error(PSTR("433Mhz: %d"), value);
     mySwitch->resetAvailable();
     if (lastVaue == value && millis() - lastTime < 1000)
     {
@@ -90,22 +90,16 @@ void RadioReceive::loop()
     {
         bool isOk = false;
 
-        /*
-		for (size_t i = 0; i < 40; i++)
-		{
-			if (config.relay_study[i] != 0)
-			{
-				Log::Info(PSTR("study %d %d"), i, config.relay_study[i]);
-			}
-		}
-		*/
+        
+
+		
 
         for (size_t ch = 0; ch < relay->channels; ch++)
         {
-            //Log::Info(PSTR("study channel %d index %d"), ch, config.relay_study_index[ch]);
+          
             for (size_t i = 0; i < relay->config.study_index[ch]; i++)
             {
-                //Log::Info(PSTR("study id %d"), (ch * MAX_STUDY_RECEIVER_NUM) + i);
+                Log::Info(PSTR("study id %d"), (ch * MAX_STUDY_RECEIVER_NUM) + i);
                 if (relay->config.study[(ch * MAX_STUDY_RECEIVER_NUM) + i] == value)
                 {
                     isOk = true;

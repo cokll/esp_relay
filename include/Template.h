@@ -87,11 +87,9 @@ const mytmplt Modules[MAXMODULE] PROGMEM = {
     // },
     {
         "1路开关",     // 1 Channel (ESP8285)
-        1, 1, 16 + 50, // LED IO
-        2, 1, 14,      // RELAY IO
-        3, 1, 4,       // BUTTON IO
-        4, 1, 0,       // RELAY LED IO
-        5, 1, 13,      // 433 IO
+        1, 1, 15 + 50, // LED IO
+        2, 1, 13,      // RELAY IO
+        5, 1, 4,      // 433 IO
 
         99 // END
     },
@@ -108,10 +106,9 @@ const mytmplt Modules[MAXMODULE] PROGMEM = {
     {
         "3路开关",       // 3 Channel (ESP8285)
         1, 1, 16 + 50,   // LED IO
-        2, 3, 14, 12, 5, // RELAY IO
-        3, 3, 4, 9, 10,  // BUTTON IO
-        4, 3, 0, 2, 15,  // RELAY LED IO
-        5, 1, 13,        // 433 IO
+        2, 3, 13, 12, 15,// RELAY IO
+
+        5, 1, 4,        // 433 IO
 
         99 // END
     },
