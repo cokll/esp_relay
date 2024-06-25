@@ -104,6 +104,8 @@ const uint32_t SERIAL_SPEED  = 115200;  ///< Use fast serial speed
 
 static long lastMillis = millis();  // Store the last time we printed something
 static long lastDelayMillis = millis();  // Store the last time we started the delay
+const unsigned long requiredDuration = 60000; // 10秒（单位：毫秒）
+unsigned long startTime = 0;
 
 uint8_t LED_PIN = 99;
 uint8_t RFRECV_PIN = 99;
@@ -270,6 +272,14 @@ int successfulAttempts = 0;
 bool relaySwitched = true; // 添加一个标志以跟踪是否已经切换了继电器
 void Relay::loop()
 {
+    busvoltage=ina.readBusVoltage();
+    busPower=ina.readBusPower();
+    shuntvoltage = ina.readShuntVoltage();
+    current_mA = ina.readShuntCurrent() * 1000;
+    loadvoltage = busvoltage + (shuntvoltage / 1000);
+
+
+
 #ifdef USE_DIMMING
     if (dimming)
     {
@@ -281,8 +291,8 @@ void Relay::loop()
         checkButton(ch);
     }
     uint8_t ch = 0;
-    busvoltage=ina.readBusVoltage()+0.4;
-    if (millis() - lastDelayMillis >= 3000) {  // Check if 1 second has passed
+
+    if (millis() - lastDelayMillis >= 600000) {  // Check if 1 second has passed
         lastDelayMillis = millis();  // Reset delay timer
 
         if (busvoltage<8){
@@ -314,23 +324,30 @@ void Relay::loop()
 
 
     if (busvoltage>15) {
-        successfulAttempts++; // 增加成功尝试次数
-        failedAttempts = 0; // 重置失败尝试次数
-        if (relaySwitched) { // 如果继电器已经切换，则将其切换回来
-            switchRelay(ch, true, false);
-            relaySwitched = false; // 重置标志
-            Serial.println("relaySwitched On successful");
-            Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
-            Log::Info(PSTR("relaySwitched On successful"));
+        if (startTime == 0) {
+            // 电压首次超过15时记录开始时间
+            startTime = millis();
+        } else if (millis() - startTime >= requiredDuration) {
+            // 如果电压已经持续超过15达到或超过10秒
+            successfulAttempts++; // 增加成功尝试次数
+            failedAttempts = 0; // 重置失败尝试次数
+            if (relaySwitched) { // 如果继电器已经切换，则将其切换回来
+                switchRelay(ch, true, false);
+                switchRelay(1, true, false);
+                relaySwitched = false; // 重置标志
+                Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
+                Log::Info(PSTR("relaySwitched On successful"));
+            }
         }
     } else {
+        // 电压未超过15，重置开始时间
+        startTime = 0;
         failedAttempts++; // 增加失败尝试次数
         successfulAttempts = 0; // 重置成功尝试次数
         if (failedAttempts >= maxAttempts && !relaySwitched) {
             Serial.println("Exceeded maximum failed attempts, switching relay");
             switchRelay(ch, false, false); // 切换继电器
             relaySwitched = true; // 设置标志以防止重复切换
-            Serial.println("relaySwitched Off successful");
             Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
             Log::Info(PSTR("relaySwitched Off successful"));
         }

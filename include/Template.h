@@ -7,7 +7,7 @@
 
 
 #ifndef MAX_RELAY_NUM
-#define MAX_RELAY_NUM 5 //设置开关最大数量
+#define MAX_RELAY_NUM 6 //设置开关最大数量
 #endif
 
 #ifndef MAX_PWM_NUM
@@ -86,20 +86,21 @@ const mytmplt Modules[MAXMODULE] PROGMEM = {
     //     99 // END
     // },
     {
-        "1路开关",     // 1 Channel (ESP8285)
-        1, 1, 15 + 50, // LED IO
-        2, 1, 13,      // RELAY IO
-        5, 1, 4,      // 433 IO
+        "电脑重启器",     // 1 Channel (ESP8285)
+        1, 1, 4 + 50, // LED IO
+        2, 3,12,14,5,  // RELAY IO
+        3, 1, 15, 9,    // BUTTON IO
+        //5, 1, 4,      // 433 IO
 
         99 // END
     },
     {
         "2路开关",     // 2 Channel (ESP8285)
-        1, 1, 16 + 50, // LED IO
-        2, 2, 14, 12,  // RELAY IO
-        3, 2, 4, 9,    // BUTTON IO
-        4, 2, 0, 2,    // RELAY LED IO
-        5, 1, 13,      // 433 IO
+        1, 1, 15 + 50, // LED IO
+        2, 2, 13, 12,  // RELAY IO
+        //3, 2, 4, 9,    // BUTTON IO
+        //4, 2, 0, 2,    // RELAY LED IO
+        //5, 1, 13,      // 433 IO
 
         99 // END
     },
