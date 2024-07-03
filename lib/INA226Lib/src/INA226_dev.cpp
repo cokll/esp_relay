@@ -76,7 +76,7 @@ bool INA226::calibrate(float rShuntValue, float iMaxExpected)
 
     calibrationValue = (uint16_t)((0.00512) / (currentLSB * rShunt));
 
-    writeRegister16(INA226_REG_CALIBRATION, calibrationValue);
+    writeRegister16(INA226_REG_CALIBRATION, 76);
 
     return true;
 }

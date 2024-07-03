@@ -86,10 +86,10 @@ const mytmplt Modules[MAXMODULE] PROGMEM = {
     //     99 // END
     // },
     {
-        "电脑重启器",     // 1 Channel (ESP8285)
-        1, 1, 4 + 50, // LED IO
-        2, 3,12,14,5,  // RELAY IO
-        3, 1, 15, 9,    // BUTTON IO
+        "太阳能电压表",     // 1 Channel (ESP8285)
+        1, 1, 15 + 50, // LED IO
+        2, 1, 13,
+        5, 1, 4, 
         //5, 1, 4,      // 433 IO
 
         99 // END

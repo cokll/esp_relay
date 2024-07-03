@@ -106,7 +106,9 @@ static long lastMillis = millis();  // Store the last time we printed something
 static long lastDelayMillis = millis();  // Store the last time we started the delay
 const unsigned long requiredDuration = 60000; // 10秒（单位：毫秒）
 unsigned long startTime = 0;
-
+unsigned long lowVoltageStartTime = 0; // 记录低电压开始时间
+// 分压电阻的阻值，单位为欧姆
+float Rshunt = 0.001; // R100，即 100 mΩ
 uint8_t LED_PIN = 99;
 uint8_t RFRECV_PIN = 99;
 uint8_t RELAY_PIN[MAX_RELAY_NUM];
@@ -228,9 +230,9 @@ void Relay::init()
 
     // Configure INA226
     ina.configure(INA226_AVERAGES_1, INA226_BUS_CONV_TIME_1100US, INA226_SHUNT_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
-
+    
     // Calibrate INA226. Rshunt = 0.01 ohm, Max excepted current = 4A
-    ina.calibrate(0.01, 4);
+    ina.calibrate(0.01, 8);
 
     // Display configuration
     checkConfig();
@@ -272,7 +274,7 @@ int successfulAttempts = 0;
 bool relaySwitched = true; // 添加一个标志以跟踪是否已经切换了继电器
 void Relay::loop()
 {
-    busvoltage=ina.readBusVoltage();
+    busvoltage=ina.readBusVoltage()+0.4;
     busPower=ina.readBusPower();
     shuntvoltage = ina.readShuntVoltage();
     current_mA = ina.readShuntCurrent() * 1000;
@@ -295,7 +297,7 @@ void Relay::loop()
     if (millis() - lastDelayMillis >= 600000) {  // Check if 1 second has passed
         lastDelayMillis = millis();  // Reset delay timer
 
-        if (busvoltage<8){
+        if (busvoltage<9){
             switchRelay(ch, false, false); // 切换继电器
             Log::Info(PSTR("电压过低: %.2f"), busvoltage);
             
@@ -323,7 +325,7 @@ void Relay::loop()
 
 
 
-    if (busvoltage>15) {
+    if (busvoltage > 15) {
         if (startTime == 0) {
             // 电压首次超过15时记录开始时间
             startTime = millis();
@@ -336,22 +338,54 @@ void Relay::loop()
                 switchRelay(1, true, false);
                 relaySwitched = false; // 重置标志
                 Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
-                Log::Info(PSTR("relaySwitched On successful"));
+                Log::Info(PSTR("Relay switched on successfully"));
             }
         }
+        // 如果电压回升到15V以上，则取消切换继电器的操作
+        if (lowVoltageStartTime != 0 && busvoltage > 15) {
+            lowVoltageStartTime = 0; // 重置低电压开始时间
+        }
+    } else if (busvoltage < 12) {
+        // 电压低于13V时关闭继电器
+        switchRelay(ch, false, false);
+        switchRelay(1, false, false);
+        relaySwitched = true; // 设置标志以防止重复切换
+        Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
+        Log::Info(PSTR("Relay switched off successfully"));
     } else {
-        // 电压未超过15，重置开始时间
-        startTime = 0;
+        // 电压在13V到15V之间时，保持继电器状态不变
+        // 检查失败尝试次数是否超过阈值，以决定是否切换继电器
         failedAttempts++; // 增加失败尝试次数
         successfulAttempts = 0; // 重置成功尝试次数
         if (failedAttempts >= maxAttempts && !relaySwitched) {
             Serial.println("Exceeded maximum failed attempts, switching relay");
             switchRelay(ch, false, false); // 切换继电器
+            switchRelay(1, false, false);
             relaySwitched = true; // 设置标志以防止重复切换
             Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
-            Log::Info(PSTR("relaySwitched Off successful"));
+            Log::Info(PSTR("Relay switched off successfully"));
+        }
+        
+        // 如果电压低于15V，记录低电压开始时间
+        if (busvoltage <= 15 && lowVoltageStartTime == 0) {
+            lowVoltageStartTime = millis();
+        }
+        
+        // 检查低电压持续时间是否超过10秒且电压已经回升到15V以上
+        if (lowVoltageStartTime != 0 && millis() - lowVoltageStartTime >= 10000 && busvoltage > 15) {
+            // 取消切换继电器的操作
+            if (relaySwitched) {
+                switchRelay(ch, true, false);
+                switchRelay(1, true, false);
+                relaySwitched = false; // 重置标志
+                Log::Info(PSTR("BusVoltage: %.2f"), busvoltage);
+                Log::Info(PSTR("Cancelled relay switch due to voltage recovery"));
+            }
+            lowVoltageStartTime = 0; // 重置低电压开始时间
         }
     }
+
+
     /*
     String c = "2";
     uint8_t ch = c.toInt() - 1;
